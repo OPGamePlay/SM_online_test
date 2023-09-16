@@ -1,0 +1,2160 @@
+:root {
+  --selected-card-size: 32px;
+  --mana: #00268d;
+  --ui-border-background-color: #212121;
+  --book-leather-dark: #280a08;
+  --book-leather-light: #501512;
+}
+
+.pad-15 {
+  padding: 15px;
+}
+
+@font-face {
+  font-family: Forum;
+  src: url('./font/Forum/Forum-Regular.ttf');
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Forum;
+  /* Prevent highlighting text to copy it */
+  user-select: none;
+}
+
+button,
+.button-text {
+  font-family: Forum;
+}
+
+#PIXI-holder {
+  flex: 1 1 auto;
+}
+
+#PIXI-holder canvas {
+  display: block;
+}
+
+#underworld-container {
+  min-height: 100vh;
+  min-width: 100vw;
+}
+
+
+#loading-screen {
+  display: none;
+  font-size: 162px;
+  color: #6363ff;
+  background: rgba(255, 255, 255, 0.3);
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  position: absolute;
+  text-align: center;
+  line-height: 100vh;
+  top: 0;
+  /* Render over top of the menu */
+  z-index: 2;
+}
+
+body.loading #loading-screen {
+  display: block;
+}
+
+body.loading.HUD-hidden #loading-screen {
+  display: none;
+}
+
+/* Hide game content and underworld when the menu is open */
+body.view-Menu #underworld-container {
+  display: none;
+}
+
+.doob-stats.hide {
+  display: none;
+}
+
+.doob-stats {
+  margin-top: 10px;
+  margin-left: 10px;
+}
+
+.floating-text {
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+}
+
+#vote-level-label {
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+  /* Render above pixi */
+  z-index: 1;
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+/* Hide UI elements while cinematic camera has control of the view
+so as to not obstruct the cinematic view */
+body.viewingCinematicCamera #tutorial-checklist,
+body.viewingCinematicCamera #in-game-lobby,
+body.viewingCinematicCamera .card-holder,
+body.viewingCinematicCamera #ui-holder,
+body.viewingCinematicCamera .prompt {
+  visibility: hidden;
+}
+
+#upgrade-picker {
+  position: fixed;
+  justify-content: center;
+  flex-direction: column;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  /* default to hidden */
+  display: none;
+  background-color: rgba(0, 0, 0, 0.75);
+}
+
+body.view-Game.showUpgrades #upgrade-picker {
+  display: flex;
+}
+
+#upgrade-picker-content {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  pointer-events: all;
+  max-height: 50vh;
+  /* So that the reroll button wraps to the next row */
+  flex-wrap: wrap;
+}
+
+#upgrade-picker-label {
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  font-size: 54px;
+  margin-bottom: 12px;
+  text-shadow: 2px 2px 2px #000;
+}
+
+#upgrade-picker .card.tiny {
+  height: 400px;
+}
+
+#upgrade-picker .card,
+.card-inspect .card {
+  width: unset;
+  height: 744px;
+  max-height: 100%;
+  margin: 8px;
+  aspect-ratio: 462/744;
+}
+
+
+
+#upgrade-picker .card-badge,
+.card-inspect .card-badge {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  border-radius: 44px;
+  font-size: 24px;
+}
+
+#upgrade-picker .card-inner,
+.card-inspect .card-inner {
+
+  /* padding: 39px; */
+  /* padding-top: 38px; */
+  padding: 8.2% 8.4%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+#upgrade-picker .perk .card-inner {
+  padding: 4px;
+}
+
+#upgrade-picker .perk .card-title {
+  background-color: #262324;
+  border: 2px solid white;
+  padding: 4px;
+  color: white;
+}
+
+#upgrade-picker .perk .card-description {
+  font-size: 1.5em;
+}
+
+#upgrade-picker .FORBIDDEN .card-title,
+.card-inspect .FORBIDDEN .card-title {
+  outline: 4px solid #000000;
+}
+
+#upgrade-picker .card-title,
+.card-inspect .card-title {
+  text-align: center;
+  color: black;
+  font-size: 24px;
+  margin: 0;
+  padding: 0;
+  height: unset;
+  background-color: #e7d1a6;
+  border: 8px solid #e7d1a6;
+  outline: 4px solid #b0935a;
+  min-width: 50%;
+  margin: 0 auto;
+  transform: translate(0px, -9px);
+}
+
+#upgrade-picker .card-thumb,
+.card-inspect .card-thumb {
+  width: 100%;
+  aspect-ratio: 1/1;
+}
+
+#upgrade-picker .card-thumb img,
+.card-inspect .card-thumb img {
+  width: 100%;
+  height: unset;
+  aspect-ratio: 1/1;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
+
+
+body .card-inspect {
+  display: flex;
+}
+
+/* There are 2 card-inspect elemnets, one is inside the inventory book the other is outside
+for when the user is hovering spells on the toolbar.  These styles ensures only one shows at a time */
+body.open-inventory #inventory-container .card-inspect {
+  display: flex;
+  justify-content: center;
+}
+
+body.open-inventory .card-inspect {
+  display: none;
+}
+
+#inventory-container .card-inspect {
+  position: initial;
+  width: 42%;
+  height: 100%;
+  /* ensure that the card fits nicely within the book page */
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+
+.card-inspect {
+  /* position: fixed; */
+  top: 0;
+  left: 0;
+  width: 100%;
+  justify-content: flex-end;
+  align-items: center;
+  pointer-events: none;
+  flex-direction: column;
+  /* Render over top of card hand */
+  z-index: 2;
+  /* Ensure that it doesn't grow bigger than it's flex container */
+  padding-top: 15px;
+  overflow: hidden
+}
+
+.card-inspect:empty {
+  display: none;
+}
+
+#ui-positioner {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: end;
+  position: fixed;
+  bottom: 0;
+  /* ui-positioner will often invisibly obscure parts
+  of the screen and so it shouldn't block clicks */
+  pointer-events: none;
+}
+
+#ui-holder {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  margin: 0 auto;
+  /* Prevents toolbar from changing position when a 
+  card is hovered on screens with limited vertical space */
+  align-self: flex-end;
+  /* Take up full vertical space so that elements inside (like .card-inspect
+  can grow to fill usable space */
+  height: 100vh;
+}
+
+/* This block is very important to make sure input handling doesn't get
+invisibly blocked, change with caution! */
+#selected-cards,
+#inventory-container,
+#card-holders-border {
+  /* reenable pointer events so card holders can be interacted with
+  since it's parent #ui-positioner has pointer events off */
+  pointer-events: all;
+}
+
+#card-holders-border {
+  /* Keep centered on screen */
+  margin: 0 auto;
+  /* Prevent toolbar from growing or shrinking 
+  it should always be the same size regardless of how the
+  rest of it's parents flex children are changing*/
+  flex: 0 0 auto;
+}
+
+#card-holders {
+  pointer-events: all;
+  user-select: none;
+  z-index: 1;
+  margin: 0 auto;
+}
+
+#selected-cards,
+#card-holders #card-hand {
+  display: flex;
+  max-width: 100vw;
+}
+
+#card-holders #card-hand {
+  /* Leave room for the names of the spells */
+  padding-bottom: 10px;
+}
+
+/* Give selected spells a rounded look to differentiate them */
+#selected-cards .card-thumb {
+  overflow: hidden;
+}
+
+#selected-cards-container {
+  /* Cap max width to allow for super long spells to wrap */
+  max-width: 100vw;
+  /* Leave some room on the sides for when spell list is super long */
+  margin: 0 30px;
+}
+
+#selected-cards {
+  /* Selected cards should always have height even when empty so that the inventory doesn't move
+  when cards are added to this element */
+  min-height: 48px;
+  /* Ensure that super long spells display properly */
+  flex-wrap: wrap;
+  /* Ensure it doesn't grow too big with huge spells */
+  max-height: 200px;
+  overflow-y: auto;
+  /* Prevent the flashing x-axis scroll bar when adding spells quickly */
+  overflow-x: hidden;
+  /* Unusual padding is so that the mana badge has room
+  and there must be enough room for the glow on hover */
+  padding: 22px 12px 12px 22px;
+}
+
+#card-hand .card img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+}
+
+#selected-cards.hide {
+  filter: grayscale(50%);
+  opacity: 50%;
+}
+
+
+.card:hover {
+  filter: drop-shadow(0 0 0.4rem rgb(255, 255, 255));
+}
+
+.card {
+  position: relative;
+  transition: all 0.1s;
+  width: 64px;
+  margin: 8px;
+}
+
+.card.selected {
+  height: var(--selected-card-size);
+  margin-right: 8px;
+  display: flex;
+  width: 40px;
+}
+
+.card.selected:last-child:after {
+  content: "";
+}
+
+/* Ensure last selected card doesn't have trailing extra space */
+.card.selected:last-child {
+  width: 32px;
+}
+
+/* Ensure last selected card doesn't have trailing extra space */
+.card.selected:last-child:after {
+  content: '';
+  padding: 0;
+}
+
+
+.card.selected:after {
+  content: "+";
+  color: white;
+  font-size: 1em;
+  line-height: var(--selected-card-size);
+  padding: 0 8px;
+}
+
+.card.selected .card-inner {
+  width: var(--selected-card-size);
+}
+
+.card.selected .card-thumb {
+  width: var(--selected-card-size);
+}
+
+.card.selected .card-thumb img {
+  width: var(--selected-card-size);
+  height: var(--selected-card-size);
+}
+
+.card-inspect .card,
+#upgrade-picker .card {
+  background-image: url('images/card-designs/card-COMMON.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.card-inspect .card.COMMON,
+#upgrade-picker .card.COMMON {
+  background-image: url('images/card-designs/card-COMMON.png');
+}
+
+.card-inspect .card.SPECIAL,
+#upgrade-picker .card.SPECIAL {
+  background-image: url('images/card-designs/card-SPECIAL.png');
+}
+
+.card-inspect .card.UNCOMMON,
+#upgrade-picker .card.UNCOMMON {
+  background-image: url('images/card-designs/card-UNCOMMON.png');
+}
+
+.card-inspect .card.RARE,
+#upgrade-picker .card.RARE {
+  background-image: url('images/card-designs/card-RARE.png');
+}
+
+.card-inspect .card.FORBIDDEN,
+#upgrade-picker .card.FORBIDDEN {
+  background-image: url('images/card-designs/card-FORBIDDEN.png');
+}
+
+/* Disable dragging for card thumbnails */
+.card img {
+  pointer-events: none;
+}
+
+#card-holder .card {
+  width: 225px;
+  height: 350px;
+  background-color: white;
+  border-radius: 10px 10px;
+  pointer-events: all;
+  display: flex;
+}
+
+.card-badge-holder {
+  display: flex;
+  position: absolute;
+  top: -4px;
+  left: -4px;
+}
+
+#inventory-container .card .card-badge-holder {
+  top: -12px;
+  left: -12px;
+}
+
+.card.selected .card-badge-holder {
+  top: -10px;
+  left: -10px;
+}
+
+.card-badge {
+  /* min- allows mana badge to expand if it is triple digits */
+  min-width: 24px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 24px;
+  color: white;
+  text-align: center;
+}
+
+.card-badge.hidden {
+  display: none;
+}
+
+.card-mana-badge {
+  background-color: #5656d5;
+  border: 2px solid #3c3c94;
+  transform-style: preserve-3d;
+}
+
+.card-mana-badge.modified-by-usage {
+  border: 2px solid #04042b;
+  color: #04042b;
+  /* Bumping a modified card-mana-badge to the right 5px
+  is a visual trick to make the :before element
+  appear to be the original cost */
+  left: 5px;
+  position: relative;
+
+}
+
+.card-mana-badge.modified-by-usage:before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  border: 2px solid #04042b;
+  /* translateZ and transform-style:preserve-3d on .card-mana-badge makes sure
+  the :before renders behind the regular one */
+  transform: translateX(-5px) translateY(0px) translateZ(-1px);
+  background-color: #5656d5;
+  display: block;
+  border-radius: 24px;
+  /* Prevents pushing badge label to next line */
+  position: absolute;
+}
+
+.card-cooldown-badge {
+  display: none;
+}
+
+.card-inspect .card-cooldown-badge {
+  display: block;
+  background-image: url('images/time-circle.png');
+  background-size: cover;
+}
+
+.card-inspect .card .disabled-label {
+  top: 25%;
+  display: flex;
+}
+
+/* More descriptive when inside card inspect */
+.disabled-label .long {
+  display: none;
+}
+
+.card-inspect .disabled-label .long {
+  display: block;
+}
+
+.card-health-badge {
+  background-color: #d55656;
+  border: 2px solid #d55656;
+}
+
+.card-health-badge.modified-by-usage {
+  border: 2px solid #522626;
+  color: #522626;
+}
+
+.button-wrapper .hotkey-badge-holder {
+  bottom: -27px;
+}
+
+.hotkey-badge-holder {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  text-align: center;
+  pointer-events: none;
+}
+
+.card .hotkey-badge-holder {
+  bottom: 8px;
+  right: 12px;
+  left: auto;
+  text-shadow: #000 1px 0 1px, #000 -1px 0 1px, #000 0 1px 1px, #000 -0 -1px 1px;
+  color: white;
+  font-weight: bold;
+}
+
+.card .hotkey-badge-holder kbd {
+  font-size: 1em;
+}
+
+/* Do not show hotkey badges on already selected cards,
+these badges only belong on cards in the hand */
+#selected-cards .hotkey-badge {
+  display: none;
+}
+
+.hotkey-badge:empty {
+  display: none;
+}
+
+kbd {
+  text-shadow: none;
+  background-color: #eee;
+  border-radius: 3px;
+  border: 1px solid #b4b4b4;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .2), 0 2px 0 0 rgba(255, 255, 255, .7) inset;
+  color: #333;
+  display: inline-block;
+  font-size: .75em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  white-space: nowrap;
+  font-family: Forum;
+}
+
+.card-inner {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.perk .card-thumb {
+  background-color: unset;
+}
+
+#upgrade-picker .card.perk {
+  background-image: none;
+}
+
+.card-thumb {
+  width: 64px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Ensure icons with no background share the same
+  background color as the default card */
+  background-color: #e7d1a6;
+  /* Prevent drag highlighting icon */
+  user-select: none;
+
+}
+
+.card-thumb img {
+  width: 64px;
+  height: 64px;
+}
+
+.card-mod-name {
+  display: none;
+  justify-content: center;
+  text-align: center;
+}
+
+#upgrade-picker-content .card-mod-name,
+.card-inspect .card-mod-name {
+  display: flex;
+}
+
+.card-mod-name img {
+  margin-right: 4px;
+}
+
+.card-rarity {
+  display: none;
+  text-align: center;
+  color: white;
+  text-transform: capitalize;
+  transform: translate(0px, -2px);
+}
+
+#upgrade-picker-content .card-rarity,
+.card-inspect .card-rarity {
+  display: block;
+}
+
+#inventory-container .card-title {
+  color: var(--book-leather-dark);
+}
+
+#card-holders-inner {
+  left: 17px;
+  position: relative;
+}
+
+.health-mana-bar .fill:after {
+  content: "";
+  position: relative;
+  background-image: url('/ui/spellBarGloss.png');
+  width: 194px;
+  height: 19px;
+  display: block;
+  opacity: 0.4;
+}
+
+#card-holders-inner .card-title {
+  color: white;
+  padding: 2px 4px;
+}
+
+.card-title {
+  font-size: 12px;
+  color: black;
+  text-align: center;
+  text-transform: capitalize;
+  /* Allow wrapping for long spell names */
+  white-space: normal;
+  /* max-height: 30px; */
+  /* For new card template */
+  padding: 4px;
+  height: 13px;
+  line-height: 13px;
+  /* Allow text center even when text overflows */
+  /* https://stackoverflow.com/a/28233945/4418836 */
+  margin-left: -20%;
+  margin-right: -20%;
+}
+
+@media (max-height: 1024px) {
+
+  #upgrade-picker .card-inner .card-title,
+  .card-inspect .card-inner .card-title {
+    font-size: 1em;
+    border-width: 1px;
+  }
+
+  #upgrade-picker-content .card-rarity,
+  .card-inspect .card-rarity {
+    display: none;
+  }
+
+  .card-description {
+    font-size: 0.9em;
+  }
+}
+
+@media (max-height: 768px) {
+  .card-description {
+    font-size: 0.7em;
+  }
+}
+
+
+
+.card-inspect .card-title {
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.perk .card-description {
+  color: white;
+  /* Give perks more space so they don't word wrap */
+  padding: 0;
+}
+
+.card-description {
+  /* Only shows within card-inspect*/
+  display: none;
+  flex-grow: 2;
+  padding-top: 5px;
+  color: black;
+  justify-content: space-between;
+  flex-direction: column;
+  height: 100%;
+  padding: 0 5%;
+  white-space: pre-wrap;
+}
+
+#upgrade-picker-content .card-description,
+.card-inspect .card-description {
+  display: flex;
+}
+
+/* Hide HUD */
+body.view-Game.HUD-hidden #camera-recenter-tip,
+body.HUD-hidden .doob-stats,
+body.HUD-hidden #inspector-tooltip {
+  display: none;
+}
+
+body.HUD-hidden #PIXI-holder {
+  z-index: 3;
+}
+
+
+body.view-Game.hide-lobby #in-game-lobby {
+  display: none;
+}
+
+body.view-Game.hide-card-holders #camera-recenter-tip,
+body.view-Game.hide-card-holders #in-game-lobby,
+.hide-card-holders #ui-positioner {
+  display: none;
+}
+
+body.your-turn #end-turn-btn {
+  opacity: 1.0;
+}
+
+body.your-turn #end-turn-btn:hover {
+  filter: drop-shadow(0 0 0.4rem rgb(255, 255, 255));
+}
+
+#end-turn-btn {
+  width: 94px;
+  height: 95px;
+  background-image: url('/ui/iconButtonBlankUp.png');
+}
+
+#end-turn-btn:active {
+  background-image: url('/ui/iconButtonBlankDown.png');
+}
+
+#end-turn-btn {
+  /* z-index set explicitly to make sure it renders overtop of the cardhand so that it will
+  change the cursor from a cursor-casting to just cursor */
+  z-index: 2;
+  opacity: 0.75;
+  white-space: normal;
+  /* Overrides button-wrapper nstyles */
+  /* Ensures that the toolbar remains centered on the screen */
+  margin: 0;
+  /* background-clip ensures that the background color wont overlap the border */
+  background-clip: padding-box;
+  background-color: #483f8e;
+  /* Position inside spellBar.png */
+  position: absolute;
+  right: 8px;
+  top: 19px
+}
+
+#end-turn-btn-inner {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  position: relative;
+  text-align: center;
+  padding: 0 4px;
+}
+
+#end-turn-btn-inner .hotkey-badge-holder {
+  bottom: -20px;
+  /* -5px keeps the hotkey badge centered in the end-turn button due to
+  the end turn inner button's small width */
+  left: -5px;
+}
+
+#end-turn-btn.highlight .hotkey-badge {
+  animation: blink-end-turn-animation 1.0s steps(5, start) infinite;
+}
+
+
+@keyframes blink-end-turn-animation {
+
+  0%,
+  100% {
+    color: black;
+    background-color: white;
+  }
+
+  50% {
+    color: white;
+    background-color: red;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .2), 0 2px 0 0 rgba(255, 0, 0, .7) inset;
+  }
+}
+
+body.showUpgrades #inspector-tooltip {
+  /* hide tooltip when choosing upgrades so it doesn't overlap */
+  display: none;
+}
+
+#inspector-tooltip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  user-select: none;
+  z-index: 1;
+  display: block;
+  position: absolute;
+  right: 8px;
+  top: 110px;
+}
+
+#inspector-tooltip-content h1 {
+  text-transform: capitalize;
+  margin-bottom: 0;
+}
+
+#inspector-tooltip h2 {
+  margin-bottom: 0;
+}
+
+#inspector-tooltip h3 {
+  margin-bottom: 0;
+}
+
+#inspector-tooltip-content hr {
+  margin: 0;
+}
+
+#inspector-tooltip-content {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+#inspector-tooltip-img {
+  width: 100%;
+}
+
+#inspector-tooltip-inner {
+  /* Allow scrolling for when perklist gets too tall */
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.scrollable::-webkit-scrollbar {
+  width: 0.5em;
+  transform: translate(10px, 0);
+  cursor: pointer;
+}
+
+.scrollable::-webkit-scrollbar-thumb {
+  background-color: #949494;
+  border-radius: 5px;
+  outline: 1px solid #313131;
+}
+
+/* Transform position is determined on hover*/
+#inspector-tooltip-container.top {
+  top: 64px;
+}
+
+#inspector-tooltip-container.bottom {
+  bottom: 0;
+}
+
+#inspector-tooltip-container.left {
+  left: 64px;
+}
+
+#inspector-tooltip-container.right {
+  right: 0;
+}
+
+#inspector-tooltip-inner {
+  padding: 8px;
+  width: 100%;
+}
+
+#inspector-tooltip-container {
+  color: white;
+  width: 340px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+#ready-state {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 1;
+}
+
+#health-mana {
+  /* Display above pixi */
+  z-index: 1;
+}
+
+.health-mana-bar {
+  height: 32px;
+  border: 1px solid var(--ui-border-background-color);
+  background-color: var(--ui-border-background-color);
+}
+
+#health {
+  left: 145px;
+  top: 16px;
+}
+
+#stamina {
+  left: 362px;
+  top: 16px;
+}
+
+#mana {
+  left: 579px;
+  top: 16px;
+}
+
+#health,
+#mana,
+#stamina {
+  overflow: hidden;
+  position: absolute;
+  width: 194px;
+  height: 19px;
+}
+
+#health-mana .cost {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+#health .cost {
+  background: repeating-linear-gradient(45deg,
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0) 10px,
+      #984646 10px,
+      #984646 20px) fixed;
+}
+
+#health .fill {
+  background-color: #8d000d;
+  position: absolute;
+}
+
+/* 2nd health fill is for shield */
+#health .fill:nth-child(2) {
+  background-color: #5c0009;
+}
+
+/* 2nd health cost is for shield */
+#health .cost:nth-child(4) {
+  background: repeating-linear-gradient(45deg,
+      #5c0009,
+      #5c0009 10px,
+      rgba(0, 0, 0, 0.0) 10px,
+      rgba(0, 0, 0, 0.0) 20px) fixed;
+}
+
+#stamina .fill {
+  background-color: #a87c04;
+}
+
+
+#mana .fill {
+  background-color: var(--mana);
+  position: absolute;
+}
+
+#mana .cost:nth-child(4) {
+  background: repeating-linear-gradient(45deg,
+      rgba(0, 0, 0, 0.0),
+      rgba(0, 0, 0, 0.0) 10px,
+      rgb(49, 40, 180) 10px,
+      rgb(49, 40, 180) 20px) fixed;
+}
+
+#mana .fill:nth-child(2) {
+  background-color: rgb(141, 86, 213);
+}
+
+#mana .cost:nth-child(5) {
+  background: repeating-linear-gradient(45deg,
+      var(--mana),
+      var(--mana) 10px,
+      rgba(0, 0, 0, 0.0) 10px,
+      rgba(0, 0, 0, 0.0) 20px) fixed;
+}
+
+#mana .fill:nth-child(3) {
+  background-color: #4e1172;
+}
+
+#mana .cost:nth-child(6) {
+  background: repeating-linear-gradient(45deg,
+      rgba(0, 0, 0, 0.0),
+      rgba(0, 0, 0, 0.0) 10px,
+      rgb(141, 86, 213) 10px,
+      rgb(141, 86, 213) 20px) fixed;
+}
+
+#health-mana .fill {
+  height: 100%;
+  width: 100%;
+  transition: width 0.1s ease;
+}
+
+#health-mana .label {
+  position: absolute;
+  margin: 0 auto;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  line-height: 19px;
+  color: white;
+}
+
+#selected-cards .card {
+  position: relative;
+}
+
+#selected-cards .card.requires-following-card:last-child {
+  /* Leave room for "Requires a following spell to modify" :before element
+  otherwise it will get clipped */
+  width: 290px;
+}
+
+#selected-cards .card.requires-following-card:last-child:before {
+  content: "Requires a following spell to modify";
+  color: white;
+  background-color: rgba(253, 98, 98, 0.596);
+  border: 4px red dotted;
+  border-left: 0;
+  position: absolute;
+  /* --selected-card-size + padding */
+  left: 40px;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  transform: translate3d(0, 0, 0);
+  height: 24px;
+  padding: 0 8px;
+  white-space: nowrap;
+  line-height: 70px;
+}
+
+#selected-cards .card.requires-following-card.blink:last-child:before {
+  animation: blink-animation 0.5s steps(5, start) infinite, shake 0.82s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+.shake {
+  animation: shake 0.82s cubic-bezier(.36, .07, .19, .97) both;
+}
+
+
+@keyframes blink-animation {
+  to {
+    border: 4px red solid;
+  }
+}
+
+@keyframes shake {
+
+  10%,
+  90% {
+    transform: translate3d(0, -1px, 0);
+  }
+
+  20%,
+  80% {
+    transform: translate3d(0, 2px, 0);
+  }
+
+  30%,
+  50%,
+  70% {
+    transform: translate3d(0, -4px, 0);
+  }
+
+  40%,
+  60% {
+    transform: translate3d(0, 4px, 0);
+  }
+}
+
+
+.view-Menu #version,
+.view-Disconnected #version {
+  display: block;
+}
+
+#version {
+  display: none;
+  color: white;
+  position: absolute;
+  top: 25px;
+  right: 31px;
+  font-size: 25px;
+  text-align: right;
+  z-index: 1;
+  font-family: sans-serif;
+}
+
+#logo {
+  width: 100%;
+  margin: 0 auto;
+}
+
+#menu-app {
+  /* menu starts out hidden until it is ready (due to it's dependencies) */
+  display: none;
+  background-color: #171717;
+  height: 100vh;
+  color: white;
+  /* Disallow drag to select text */
+  user-select: none;
+}
+
+.view-Menu #menu-app.ready {
+  display: flex;
+}
+
+#game-over {
+  display: none;
+  margin: 0 auto;
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  left: 0;
+  right: 0;
+  justify-content: center;
+  align-items: center;
+  /* Display above toolbar */
+  z-index: 1;
+}
+
+body.view-Game.game-over #game-over {
+  display: flex;
+}
+
+#game-over-modal {
+  min-width: 300px;
+  color: white;
+  gap: 20px;
+  max-height: 100vh;
+  overflow-y: auto;
+
+}
+
+#game-over-modal h1 {
+  text-align: center;
+  margin: 0;
+}
+
+body.view-Menu .prompt:not(.forceShow) {
+  /* Hide prompt when menu is active
+  so long as the prompt doesn't have the class .forceShow, in which case allow it to
+  show over the menu
+   */
+  display: none;
+}
+
+.prompt {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  font-size: 24px;
+  /* White overlay to make prompt obvious */
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+.prompt.in-portal {
+  position: relative;
+  background-color: transparent;
+}
+
+.prompt-inner {
+  padding: 15px;
+  color: white;
+  /* prevent user from highlighting text or images in the prompt.  This is a game not a website, text shouldn't be copyable */
+  user-select: none;
+  /* Ensure the button is always visible no matter the size
+  This is the reason that the prompt's button isn't within prompt-content
+  so that no matter how the prompt scales the button will be visible
+  */
+  display: flex;
+  flex-direction: column;
+}
+
+.prompt-content {
+  /* Ensure children elements don't overflow bigger than the screen */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+}
+
+@media (max-height: 1024px) {
+
+  /* Prevent image from taking up too much space on small screens */
+  .prompt-inner img {
+    max-height: 300px;
+  }
+}
+
+.prompt-inner img {
+  object-fit: contain;
+}
+
+.prompt-inner.thin {
+  max-width: 450px;
+}
+
+.prompt-inner h1 {
+  text-align: center;
+}
+
+.prompt .button-holder {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+/* If prompt only has one button, center it */
+.prompt .button-holder .button-wrapper:first-child:nth-last-child(1) {
+  margin: 12px auto;
+}
+
+.prompt .text {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 8px;
+  white-space: pre-line;
+  overflow-y: auto;
+}
+
+#version-info-headless-server,
+#version-info,
+#seed {
+  font-size: small;
+}
+
+#cookie-consent {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.2);
+  height: 100vh;
+  z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+}
+
+#cookie-consent-inner {
+  border: 1px solid black;
+  padding: 4px;
+  background-color: white;
+  z-index: 1;
+  max-width: 600px;
+
+}
+
+#pie-disconnected {
+  display: none;
+}
+
+body.view-Disconnected #pie-disconnected {
+  display: flex;
+  gap: 16px;
+  flex-direction: column;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgb(37, 0, 0);
+  z-index: 2;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+body.view-Disconnected #websocketpie-connection-status {
+  display: block;
+  z-index: 3;
+  position: relative;
+  text-align: center;
+}
+
+body.view-Menu #websocketpie-connection-status {
+  display: block;
+}
+
+/* Show that camera is being dragged with the mouse */
+body.draggingCamera {
+  cursor: grabbing;
+}
+
+.card.upgrade.chosen {
+  opacity: 0.5;
+}
+
+.card-common {
+  border-image: url('images/card-borders/cardCommonBorder.png') 30 / 1 / 0 stretch;
+}
+
+.card-rare {
+  border-image: url('images/card-borders/cardRareBorder.png') 30 / 1 / 0 stretch;
+}
+
+body.open-inventory #inventory-container {
+  display: flex;
+}
+
+#inventory-container {
+  display: none;
+  overflow-y: hidden;
+  background-image: url('/ui/bookOpenNoBM200.png');
+  /* width: 1262px;
+  height: 766px; */
+  background-size: contain;
+  aspect-ratio: 1262/766;
+  height: 766px;
+  max-height: 100%;
+  padding: 20px 0;
+  box-sizing: border-box;
+
+}
+
+.book-padding {
+  width: 8%;
+  height: 100%;
+}
+
+
+#inventory-content {
+  /* Needed to display in front of pixi */
+  z-index: 1;
+  /* width is half of the width of the book minus the .book-padding width which
+  covers the page art */
+  width: 42%;
+  display: flex;
+  flex-direction: column;
+  /* Prevent highlighting text, because no blocks of text should need to be copied and
+  it looks bad */
+  user-select: none;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: scroll;
+}
+
+#inventory-content .category {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+#inventory-content .category-label {
+  display: none;
+  color: var(--book-leather-dark);
+  white-space: nowrap;
+}
+
+#inventory-content .category-label.visible {
+  display: block;
+}
+
+/* Custom scrollbar for inventory */
+#inventory-content::-webkit-scrollbar {
+  width: 0.5em;
+  cursor: pointer;
+}
+
+
+#inventory-content::-webkit-scrollbar-thumb {
+  background-color: var(--book-leather-light);
+  border-radius: 5px;
+  outline: 1px solid var(--book-leather-dark);
+}
+
+.slot {
+  margin: 8px;
+  width: 64px;
+  height: 64px;
+}
+
+#card-hand .slot:nth-of-type(1) {
+  position: absolute;
+  left: 111px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(2) {
+  position: absolute;
+  left: 188px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(3) {
+  position: absolute;
+  left: 265px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(4) {
+  position: absolute;
+  left: 342px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(5) {
+  position: absolute;
+  left: 419px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(6) {
+  position: absolute;
+  left: 496px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(7) {
+  position: absolute;
+  left: 573px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(8) {
+  position: absolute;
+  left: 650px;
+  top: 55px;
+  margin: 0;
+}
+
+#card-hand .slot:nth-of-type(9) {
+  position: absolute;
+  left: 728px;
+  top: 55px;
+  margin: 0;
+}
+
+.slot .card-inner,
+#inventory .card-inner {
+  width: 64px;
+}
+
+.empty-slot {
+  width: 64px;
+  height: 64px;
+}
+
+.slot {
+  /* No margin and some padding makes for a bigger drag/drop zone */
+  padding: 8px;
+  margin: 0;
+}
+
+.floating-card-holder .empty-slot:after {
+  width: 42px;
+  height: 42px;
+  /* Add glow to denote that a card can be dropped here */
+  box-shadow: 0px 0px 11px 4px rgb(0, 194, 242);
+}
+
+.empty-slot:after {
+  width: 64px;
+  height: 64px;
+  content: "";
+  display: block;
+  background-size: contain;
+  background-image: url('images/spell/toolbar-slot.png');
+}
+
+#inventory-icon {
+  width: 78px;
+  height: 106px;
+  background-image: url('images/card-designs/bookStone.png');
+  background-size: contain;
+  position: absolute;
+  left: 21px;
+  top: 7px;
+}
+
+body.open-inventory #inventory-icon {
+  filter: drop-shadow(0 0 0.4rem rgb(0, 243, 255));
+}
+
+#inventory-icon:hover {
+  filter: drop-shadow(0 0 0.4rem rgb(255, 255, 255));
+}
+
+/* Glow to signify that this toolbar element is active and will change if an inventory item is selected */
+#card-hand .active-toolbar-element {
+  box-shadow: 0px 0px 11px 4px rgba(242, 234, 0, 1);
+}
+
+#in-game-lobby {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  width: 380px;
+}
+
+#in-game-lobby .player-name {
+  font-weight: bold;
+  /* filter: drop-shadow(1px 0px 0px white); */
+}
+
+#in-game-lobby .ui-border {
+  margin: 4px;
+  /* Smaller border than usual ui-border so more player names will fit */
+  border-width: 9px;
+}
+
+#in-game-lobby .player {
+  color: white;
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  background-color: var(--ui-border-background-color);
+}
+
+body.view-Game #in-game-lobby {
+  display: block;
+}
+
+/* Dev util right click context menu */
+#ctxmenu {
+  font-family: 'Lucida Sans', sans-serif;
+  position: fixed;
+  background: ghostwhite;
+  color: black;
+  border: 1px black solid;
+  padding: 0 1rem;
+}
+
+#ctxmenu li {
+  margin: 0;
+}
+
+#ctxmenu li:hover {
+  background: black;
+  color: ghostwhite
+}
+
+
+body,
+button {
+  cursor: url('cursor.png'), auto;
+}
+
+body.casting {
+  cursor: url('cursor-cast.png') 18 18, auto;
+}
+
+body.casting.outOfRange {
+  cursor: url('cursor-cast-out-of-range.png') 18 18, auto;
+}
+
+body.casting .card,
+body.casting #card-holders-border,
+/* Show regular cursor whenever mouse is over any ui-border because
+then it is over a UI element and not the game space */
+body.casting .ui-border {
+  cursor: url('cursor.png'), auto;
+}
+
+body.viewingCinematicCamera #instructions {
+  /* Do not view instructions while the cinematic camera has control of the viewer */
+  visibility: hidden;
+}
+
+/* Hide instructions such as "Choose a place to spawn"
+until upgrades are done being picked */
+body.showUpgrades.view-Game #instructions {
+  display: none;
+}
+
+body.view-Game #instructions,
+body.view-Game #camera-recenter-tip {
+  display: block;
+}
+
+body.view-Lobby #lobby {
+  display: block;
+}
+
+#lobby {
+  display: none;
+
+}
+
+#in-game-lobby {
+  display: none;
+}
+
+body.view-Game #in-game-lobby {
+  display: block;
+}
+
+#instructions,
+#camera-recenter-tip {
+  display: none;
+  text-align: center;
+  color: white;
+  font-weight: bold;
+  font-size: 54px;
+  margin-bottom: 12px;
+  text-shadow: 2px 2px 2px #000;
+  position: absolute;
+  top: 260px;
+  z-index: 1;
+  width: 600px;
+  margin: 0 auto;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 5px;
+}
+
+#camera-recenter-tip {
+  font-size: 22px;
+  top: 15px;
+}
+
+body.auto-camera #camera-recenter-tip {
+  display: none;
+}
+
+#instructions img {
+  /* matches font size */
+  height: 54px;
+  transform: translate(0, 9px);
+}
+
+/* Modified from https://codepen.io/hzlo/pen/VweYrLX */
+.hazard-border {
+  border: 10px solid pink;
+  border-image: repeating-linear-gradient(-55deg,
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0) 20px,
+      rgba(196, 53, 53, 1.0) 20px,
+      rgba(196, 53, 53, 1.0) 40px) 10;
+}
+
+/* caution-box styling modified from https://codepen.io/evilpeacock/pen/OJyyBBP */
+#caution-box-positioner {
+  pointer-events: none;
+  z-index: 1;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 260px;
+
+}
+
+#caution-box {
+  margin: 0 auto;
+  display: none;
+}
+
+#caution-box.visible {
+  display: block;
+}
+
+#caution-box #caution-box-text {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: black;
+}
+
+#caution-box {
+  max-width: 500px;
+  box-sizing: border-box;
+  padding: 10px;
+  position: relative;
+  overflow: hidden;
+  --color-error: #d55656;
+  --color-error2: #8d3a3a;
+  --color-background: #d55656;
+  color: white;
+}
+
+#caution-box::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 150%;
+  height: 1000%;
+  background: repeating-linear-gradient(var(--color-error2) 0%,
+      var(--color-error2) 7.5px,
+      var(--color-error) 7.5px,
+      var(--color-error) 15px,
+      var(--color-error2) 15px,
+      var(--color-error2) 22.5px,
+      var(--color-error) 22.5px,
+      var(--color-error) 30px);
+  transform: translateX(-50%) translateY(-50%) rotate(-45deg);
+  animation: animate-caution-box 20s linear infinite;
+}
+
+#caution-box #caution-box-text {
+  /*display: none;*/
+  position: relative;
+  background-color: var(--color-background);
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 10px;
+  text-align: center;
+  font-size: 1.8em;
+  z-index: 2;
+}
+
+#caution-box,
+#caution-box #caution-box-text {
+  border-radius: 4px;
+}
+
+#caution-box #caution-box-text a {
+  text-decoration: none;
+  color: #111;
+}
+
+@keyframes animate-caution-box {
+  from {
+    background-position: 0;
+  }
+
+  to {
+    background-position: 0 250px;
+  }
+}
+
+#ctxmenu {
+  display: flex;
+  gap: 8px;
+}
+
+#ctxmenu div p {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+#ctxmenu ul {
+  border-left: 1px solid black;
+}
+
+#card-holders-border {
+  background-image: url("/ui/spellBar.png");
+  background-repeat: no-repeat;
+  padding-bottom: 8px;
+  /* Matches the dimentions of the spellBar.png exactly */
+  width: 954px;
+  height: 147px;
+  position: relative;
+}
+
+.ui-border.cursed {
+  border-image-source: url("/ui/ui_border_cursed.png");
+  background-color: #321111;
+}
+
+.ui-border {
+  border: 30px solid;
+  border-image-outset: 0;
+  border-image-repeat: repeat stretch;
+  border-image-slice: 30;
+  border-image-source: url("/ui/ui_border.png");
+  border-image-width: 1;
+  box-sizing: border-box;
+  /* Prevent child elements from becoming bigger than the screen */
+  max-height: 100%;
+  display: flex;
+  /* background-clip ensures that the background color wont overlap the border */
+  background-clip: padding-box;
+  background-color: var(--ui-border-background-color);
+}
+
+/* Supports a limited size so that the inventory will have a scrollbar */
+#inventory-container .ui-border {
+  height: 100%;
+  overflow-y: hidden;
+}
+
+.showTutorial #tutorial-checklist {
+  display: block;
+}
+
+/* Override hide tutorial checklist if not in view-Game */
+body:not(.view-Game) #tutorial-checklist {
+  display: none;
+}
+
+#tutorial-checklist {
+  display: none;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  color: white;
+}
+
+#tutorial-checklist h3 {
+  margin: 0;
+  text-transform: capitalize;
+}
+
+#tutorial-checklist-inner {
+  padding-left: 15px;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+#tutorial-checklist-inner div.complete {
+  color: #aaa;
+}
+
+/* Allow clicking on twirl-down icon for completed tutorial items */
+#tutorial-checklist details {
+  pointer-events: all;
+}
+
+#debug-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+
+}
+
+#perkList {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  justify-content: center;
+  display: none;
+  flex-direction: column;
+  z-index: 2;
+  padding: 16px;
+  color: white;
+}
+
+#perkList h1 {
+  margin-top: 0;
+}
+
+body.view-Game.showUpgrades #perkList.visible {
+  display: flex;
+}
+
+.stat-row h1 {
+  line-height: 64px;
+}
+
+.plus-btn {
+  width: 94px;
+  height: 95px;
+  background-image: url('/ui/iconPlusUp.png');
+  width: 64px;
+  height: 64px;
+  background-size: contain;
+}
+
+.plus-btn:hover {
+  filter: drop-shadow(0 0 0.4rem rgb(255, 255, 255));
+}
+
+.plus-btn:active {
+  background-image: url('/ui/iconPlusDown.png');
+}
+
+.reroll-btn {
+  width: 94px;
+  height: 95px;
+  background-image: url('/ui/iconRerollUp.png');
+  /* The 40% makes the reroll button wide enough that it has to flex-wrap
+  to the next row which ensures the 3 card choices are centered */
+  margin: 8px 40%;
+}
+
+.reroll-btn:hover {
+  filter: drop-shadow(0 0 0.4rem rgb(255, 255, 255));
+}
+
+.reroll-btn:active {
+  background-image: url('/ui/iconRerollDown.png');
+}
+
+
+/* Extra toolbars for cards */
+#floating-card-holder-left {
+  position: absolute;
+  bottom: 0;
+  left: 8px;
+}
+
+#floating-card-holder-right {
+  position: absolute;
+  bottom: 0;
+  right: 8px;
+}
+
+/* Ensure slots don't block clicks unless they have a spell in them or 
+if the inventory is open in which case they can be used to drop spells into */
+.floating-card-holder,
+.floating-card-holder .slot.empty-slot {
+  pointer-events: none;
+}
+
+body.dragging-card .floating-card-holder .slot.empty-slot,
+.floating-card-holder .slot {
+  pointer-events: all;
+}
+
+.floating-card-holder .slot,
+.floating-card-holder .slot .card-inner,
+.floating-card-holder .slot .card-thumb,
+.floating-card-holder .slot .card-thumb img {
+  width: 42px;
+  height: 42px;
+}
+
+.floating-card-holder .slot .card-title {
+  display: none;
+}
+
+/* Empty Slots shouldn't be visible unless the inventory is open */
+.floating-card-holder .empty-slot {
+  visibility: hidden;
+}
+
+body.dragging-card .floating-card-holder .empty-slot {
+  visibility: visible;
+}
+
+/* Above: Extra toolbars for cards */
+
+#game-over-stats {
+  white-space: pre;
+}
+
+#game-over-stats img {
+  width: 32px;
+  height: 32px;
+}
+
+.stats-spell {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 450px;
+  margin: 8px auto;
+
+}
+
+#admin-menu-holder {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#ctxmenu {
+  pointer-events: all;
+  z-index: 2;
+}
+
+.card.disabled {
+  filter: grayscale(1);
+}
+
+.card .disabled-label {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  font-size: 64px;
+  color: white;
+  text-align: center;
+  text-shadow: 2px 2px 2px #000;
+  line-height: 64px;
+}
+
+.floating-card-holder .card .disabled-label {
+  font-size: 32px;
+  line-height: 58px;
+}
+
+#card-hand .card .disabled-label {
+  /* keep it centered */
+  margin-top: 8px;
+}
+
+.cursed .card-description {
+  text-align: center;
+  margin-top: 8px;
+}
+
+.modifiers {
+  margin-left: 4px;
+  margin-top: 2px;
+}
+
+#level-tracker {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-size: 40px;
+  text-shadow: #FFF 1px 1px 1px;
+}
+
+.pick-stats {
+  color: white;
+}
+
+.mageType-wins {
+  font-size: 24px;
+  text-align: center;
+  position: absolute;
+  bottom: 0;
+  background-color: #e7d1a6;
+  margin: 0 auto;
+  left: 50%;
+  transform: translate(-50%, +25%);
+  border-radius: 5px;
+  border: 4px solid #602c60;
+  padding: 4px;
+
+}
