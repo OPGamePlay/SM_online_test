@@ -1,0 +1,994 @@
+import * as PIXI from 'pixi.js';
+import { clone, equal, getAngleBetweenVec2sYInverted, isInvalid, Vec2 } from '../jmath/Vec';
+import { View } from '../views';
+import * as math from '../jmath/math';
+import * as config from '../config';
+import { keyDown } from './ui/eventListeners';
+import * as colors from './ui/colors';
+import { JSpriteAnimated } from './Image';
+import { containerParticles, containerParticlesUnderUnits } from './Particles';
+import { elPIXIHolder } from './FloatingText';
+import Underworld, { Biome } from '../Underworld';
+import { randFloat, randInt } from '../jmath/rand';
+import { IUnit } from '../entity/Unit';
+import { isWithinRect, Rect } from '../jmath/Rect';
+import { inPortal } from '../entity/Player';
+import KeyMapping, { keyToHumanReadable } from './ui/keyMapping';
+import { tutorialCompleteTask } from './Explain';
+import { MultiColorReplaceFilter } from '@pixi/filter-multi-color-replace';
+import { RenderTexture } from 'pixi.js';
+
+// if PIXI is finished setting up
+let isReady = false;
+// Ensure textures stay pixelated when scaled:
+if (globalThis.pixi) {
+  // Copied from pixi.js so pixi.js wont have to be imported in headless
+  enum SCALE_MODES {
+    NEAREST = 0,
+    LINEAR = 1
+  }
+  globalThis.pixi.settings.SCALE_MODE = SCALE_MODES.NEAREST;
+}
+// PIXI app
+export const app = !globalThis.pixi ? undefined : new globalThis.pixi.Application();
+export const containerLiquid = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerBoard = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerBloodSmear = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerRadiusUI = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerPlanningView = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerDoodads = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerUnits = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerSpells = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerProjectiles = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerUI = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerPlayerThinking = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerUIFixed = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+export const containerFloatingText = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+
+
+// Graphics used for painting blood trails
+export const graphicsBloodSmear = !globalThis.pixi ? undefined : new globalThis.pixi.Graphics();
+// Container used for blood spatter particles
+export const containerBloodParticles = !globalThis.pixi ? undefined : new globalThis.pixi.ParticleContainer();
+
+let tempBloodContainer: PIXI.Container | undefined;
+export function cleanBlood(underworld?: Underworld) {
+  if (underworld) {
+    // Remove current blood objects from continuing to propagate blood
+    underworld.bloods = [];
+  }
+  // Remove blood
+  graphicsBloodSmear?.clear();
+  containerBloodParticles?.removeChildren();
+  containerBloodSmear?.removeChildren();
+
+  // Setup blood containers to receive new blood
+  resetupBloodContainers();
+
+}
+function resetupBloodContainers() {
+  tempBloodContainer = !globalThis.pixi ? undefined : new globalThis.pixi.Container();
+  if (tempBloodContainer) {
+    if (graphicsBloodSmear) {
+      tempBloodContainer.addChild(graphicsBloodSmear);
+      graphicsBloodSmear.alpha = 0.5;
+    }
+    if (containerBloodParticles) {
+      containerBloodParticles.alpha = 0.5;
+      tempBloodContainer.addChild(containerBloodParticles);
+    }
+
+    containerBloodSmear?.addChild(tempBloodContainer);
+  }
+
+}
+
+
+export function cacheBlood() {
+  if (app) {
+    if (tempBloodContainer) {
+      tempBloodContainer.cacheAsBitmap = true
+    }
+    requestAnimationFrame(() => {
+      // Remove blood from particle container and graphics object now that the blood
+      // is cached in the tempBloodContainer
+      containerBloodParticles?.removeChildren();
+      graphicsBloodSmear?.clear();
+      // Reassign the temp blood container now that the previous one is cached and
+      // will not change
+      resetupBloodContainers();
+    });
+  }
+}
+
+let updateLiquidFilterIntervalId: NodeJS.Timer | undefined;
+// Setup animated liquid displacement
+export function setupLiquidFilter() {
+  if (containerLiquid) {
+    if (globalThis.pixi) {
+      const displacementSprite = globalThis.pixi.Sprite.from('images/noise.png');
+      displacementSprite.texture.baseTexture.wrapMode = globalThis.pixi.WRAP_MODES.REPEAT;
+
+      const displacementFilter = new globalThis.pixi.filters.DisplacementFilter(displacementSprite);
+
+      displacementSprite.scale.y = config.LIQUID_DISPLACEMENT_SCALE;
+      displacementSprite.scale.x = config.LIQUID_DISPLACEMENT_SCALE;
+      containerLiquid.addChild(displacementSprite);
+      containerLiquid.filters = [displacementFilter];
+      updateLiquidFilterIntervalId = setInterval(() => {
+        displacementSprite.x += config.LIQUID_DISPLACEMENT_SPEED;
+      }, 10)
+    }
+  }
+}
+export function cleanUpLiquidFilter() {
+  // Note: cleanup only needs to clear the interval, the rest is cleaned up
+  // when containerLiquid.removeChildren() is called on level cleanup
+  if (updateLiquidFilterIntervalId !== undefined) {
+    clearInterval(updateLiquidFilterIntervalId)
+  }
+}
+
+export function resizePixi() {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (app) {
+    app.renderer.resize(globalThis.innerWidth, globalThis.innerHeight);
+  }
+}
+interface UtilProps {
+  underworldPixiContainers: PIXI.Container[] | undefined;
+  elPIXIHolder: HTMLElement | undefined;
+  elCardHoldersBorder: HTMLElement | undefined;
+  elCardHand: HTMLElement | undefined;
+  elCardHoldersInner: HTMLElement | undefined;
+  camera: Vec2;
+  doCameraAutoFollow: boolean;
+}
+const utilProps: UtilProps = {
+  underworldPixiContainers: undefined,
+  elPIXIHolder: undefined,
+  elCardHoldersBorder: undefined,
+  elCardHand: undefined,
+  elCardHoldersInner: undefined,
+  camera: { x: 0, y: 0 },
+  // True if camera should auto follow player unit
+  doCameraAutoFollow: true,
+}
+// debug: Draw caves
+if (globalThis.pixi && containerUI && app && containerRadiusUI) {
+  globalThis.debugCave = new globalThis.pixi.Graphics();
+  containerUI.addChild(globalThis.debugCave);
+  globalThis.devDebugGraphics = new globalThis.pixi.Graphics();
+  globalThis.devDebugGraphics.lineStyle(3, 0x0000ff, 1.0);
+  containerUI.addChild(globalThis.devDebugGraphics);
+
+  if (
+    containerLiquid &&
+    containerBoard &&
+    containerBloodSmear &&
+    containerRadiusUI &&
+    containerPlanningView &&
+    containerDoodads &&
+    containerParticlesUnderUnits &&
+    containerUnits &&
+    containerSpells &&
+    containerProjectiles &&
+    containerPlayerThinking &&
+    containerParticles &&
+    containerUI &&
+    containerUIFixed &&
+    containerFloatingText
+  ) {
+
+    utilProps.underworldPixiContainers = [
+      containerLiquid,
+      containerBoard,
+      containerBloodSmear,
+      containerRadiusUI,
+      containerPlanningView,
+      containerDoodads,
+      containerParticlesUnderUnits,
+      containerUnits,
+      containerSpells,
+      containerProjectiles,
+      containerPlayerThinking,
+      containerParticles,
+      containerUI,
+      containerUIFixed,
+      containerFloatingText,
+    ];
+  }
+
+  utilProps.elPIXIHolder = document.getElementById('PIXI-holder') as (HTMLElement | undefined);
+  utilProps.elCardHoldersBorder = document.getElementById('card-holders-border') as (HTMLElement | undefined);
+  utilProps.elCardHand = document.getElementById('card-hand') as (HTMLElement | undefined);
+  utilProps.elCardHoldersInner = document.getElementById('card-holders-inner') as (HTMLElement | undefined);
+  globalThis.debugGraphics = new globalThis.pixi.Graphics();
+  containerUI.addChild(globalThis.debugGraphics);
+  globalThis.unitOverlayGraphics = new globalThis.pixi.Graphics();
+  containerUI.addChild(globalThis.unitOverlayGraphics);
+  globalThis.selectedUnitGraphics = new globalThis.pixi.Graphics();
+  containerUI.addChild(globalThis.selectedUnitGraphics);
+  globalThis.walkPathGraphics = new globalThis.pixi.Graphics();
+  containerUI.addChild(globalThis.walkPathGraphics);
+  globalThis.thinkingPlayerGraphics = new globalThis.pixi.Graphics();
+  globalThis.radiusGraphics = new globalThis.pixi.Graphics();
+  const colorMatrix = new globalThis.pixi.filters.AlphaFilter();
+  colorMatrix.alpha = 0.2;
+  globalThis.radiusGraphics.filters = [colorMatrix];
+  containerRadiusUI.addChild(globalThis.radiusGraphics);
+
+
+
+  globalThis.addEventListener('resize', resizePixi);
+  globalThis.addEventListener('load', () => {
+    resizePixi();
+  });
+
+}
+export function setAbyssColor(biome: Biome) {
+  if (app) {
+    let color = colors.abyss[biome];
+    if (globalThis.UIEasyOnTheEyes) {
+      color = colors.abyssEasyEyes[biome];
+    }
+    app.renderer.backgroundColor = color;
+  }
+
+}
+function UIElementToInGameSpace(el: HTMLElement, pixiHolderRect: Rect, camX: number, camY: number, zoom: number): Rect {
+  const elRect = el.getBoundingClientRect();
+  const box = {
+    top: (elRect.top - pixiHolderRect.top + camY) / zoom,
+    bottom: (elRect.bottom - pixiHolderRect.top + camY) / zoom,
+    right: (elRect.right + camX) / zoom,
+    left: (elRect.left + camX) / zoom
+  }
+  // Debug draw
+  // globalThis.unitOverlayGraphics?.lineStyle(4, 0xcb00f5, 1.0);
+  // globalThis.unitOverlayGraphics?.drawRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
+  return box;
+
+}
+// withinCameraBounds takes a Vec2 (in game space) and returns a 
+// Vec2 that is within the bounds of the camera so that it will 
+// surely be seen by a user even if they have panned away.
+// Used for attention markers and pings
+export function withinCameraBounds(position: Vec2, marginHoriz?: number): Vec2 {
+  // Headless does not use graphics
+  if (globalThis.headless) { return { x: 0, y: 0 }; }
+  if (!(utilProps.elCardHoldersBorder && utilProps.elPIXIHolder)) {
+    // If headless, the return of this function is irrelevant
+    return { x: 0, y: 0 }
+  }
+  const pixiHolderRect = utilProps.elPIXIHolder.getBoundingClientRect();
+  const { x: camX, y: camY, zoom } = getCamera();
+  // Determine bounds
+  const margin = (marginHoriz !== undefined ? marginHoriz : 30) / zoom;
+  const marginTop = 45 / zoom;
+  const marginBottom = 45 / zoom;
+  const left = margin + camX / zoom;
+  const right = globalThis.innerWidth / zoom - margin + camX / zoom;
+  const top = marginTop + camY / zoom;
+  const bottom = utilProps.elPIXIHolder.clientHeight / zoom - marginBottom + camY / zoom;
+
+  // Debug draw camera limit
+  // globalThis.unitOverlayGraphics.lineStyle(4, 0xcb00f5, 1.0);
+  // globalThis.unitOverlayGraphics.moveTo(left, top);
+  // globalThis.unitOverlayGraphics.lineTo(right, top);
+  // globalThis.unitOverlayGraphics.lineTo(right, bottom);
+  // globalThis.unitOverlayGraphics.lineTo(left, bottom);
+  // globalThis.unitOverlayGraphics.lineTo(left, top);
+
+  // Keep inside bounds of camera
+  const withinBoundsPos: Vec2 = {
+    x: Math.min(Math.max(left, position.x), right),
+    y: Math.min(Math.max(top, position.y), bottom)
+  }
+  // globalThis.unitOverlayGraphics.drawCircle(camX / zoom, camY / zoom, 4);
+  // globalThis.unitOverlayGraphics.drawCircle(cardHandRight, cardHandTop, 8);
+
+  // Don't let the attention marker get obscured by the UI element
+  const cardHoldersBorderBox = UIElementToInGameSpace(utilProps.elCardHoldersBorder, pixiHolderRect, camX, camY, zoom);
+  // Move the position if it is obscured by the card-holder
+  if (isWithinRect({ x: withinBoundsPos.x - margin, y: withinBoundsPos.y }, cardHoldersBorderBox) || isWithinRect({ x: withinBoundsPos.x + margin, y: withinBoundsPos.y }, cardHoldersBorderBox)) {
+    withinBoundsPos.y = cardHoldersBorderBox.top - marginTop;
+  }
+  return withinBoundsPos;
+}
+export function runCinematicLevelCamera(underworld: Underworld): Promise<void> {
+  if (globalThis.headless) {
+    return Promise.resolve();
+  }
+  if (globalThis.view !== View.Game) {
+    console.log('Cinematic Cam: Skip, game view is not game')
+    // Do not run cinematic unless the player is looking at the game view
+    return Promise.resolve();
+  }
+  console.log('Cinematic Cam: Start')
+  const cinematicCameraCSSClass = 'viewingCinematicCamera';
+  document.body?.classList.toggle(cinematicCameraCSSClass, true);
+
+  return new Promise<void>(resolve => {
+    if (!globalThis.cinematicCameraEnabled) {
+      // Note: This intentionally resolves inside the promise so that
+      // even if a player has cinematicCameraEnabled set to false,
+      // it will still show them upgrades which is called in the then()
+      // callback for this promise.  Early `return Promise.resolves()` would
+      // skip this showUpgrades() invokation.
+      console.log('Cinematic Cam: Skip, cinematicCameraEnabled == false')
+      resolve();
+      return;
+    }
+    globalThis.skipCinematic = resolve;
+    setCameraToMapCenter(underworld);
+    const realCam = getCamera();
+    const mapCenter = getMapCenter(underworld);
+    // The greater the margin, the closer the unit scanned will get to
+    // the center of the camera before the camera moves on
+    const margin = 3;
+    const firstUnitToView = clampCameraPosition({ x: underworld.limits.xMin, y: underworld.limits.yMin }, realCam.zoom, underworld);//positionSortedUnits[0];
+    const lastUnitToView = clampCameraPosition({ x: underworld.limits.xMax, y: underworld.limits.yMax }, realCam.zoom, underworld);//positionSortedUnits[positionSortedUnits.length - 1];
+    if (!firstUnitToView || isInvalid(firstUnitToView) || !lastUnitToView || isInvalid(lastUnitToView)) {
+      // First tutorial level has no units, resolve immediately
+      resolve();
+      return;
+    }
+    let cinematicCameraMoveSpeed = 0.3;
+    let cinematicCam: {
+      radius: number;
+      x: number;
+      y: number;
+      target: Vec2;
+      lastTarget: Vec2;
+    } = {
+      radius: Math.min(elPIXIHolder.clientWidth, elPIXIHolder.clientHeight) / realCam.zoom / margin,
+      x: firstUnitToView.x, y: firstUnitToView.y,
+      target: lastUnitToView,
+      lastTarget: firstUnitToView,
+    }
+    globalThis.zoomTarget = 1.2;
+    cameraAutoFollow(true);
+    let lastTime: number | undefined = undefined;
+    const loop = (timestamp: number) => {
+      if (globalThis.skipCinematic === undefined) {
+        // If skipCinematic has been invoked (it sets itself to undefined once invoked)
+        // then stop animating the loop
+        return;
+      }
+      if (lastTime === undefined) {
+        lastTime = timestamp;
+        requestAnimationFrame(loop);
+        return;
+      }
+      const elapsed = timestamp - lastTime;
+      lastTime = timestamp;
+      // Move camera:
+      const stepTowardsTarget = math.getCoordsAtDistanceTowardsTarget(cinematicCam, cinematicCam.target, cinematicCameraMoveSpeed * elapsed)
+      cinematicCam.x = stepTowardsTarget.x;
+      cinematicCam.y = stepTowardsTarget.y;
+      // Once the camera is returning to the map center and it get's close enough, finish cinematic
+      if (cinematicCam.target == mapCenter && math.distance(cinematicCam, mapCenter) < 1) {
+        globalThis.zoomTarget = 1.6;
+        resolve();
+        return;
+      }
+      globalThis.cinematicCameraTarget = cinematicCam;
+      // Does the radius encompass the target?
+      if (cinematicCam.target !== mapCenter && math.distance(cinematicCam, cinematicCam.target) <= cinematicCam.radius) {
+        cinematicCam.lastTarget = cinematicCam.target;
+        // All units have been scanned, move to map center
+        console.log('Cinematic Cam: go to map center', mapCenter);
+        // Speed camera up on the way back to the center
+        cinematicCameraMoveSpeed *= 1.8;
+        cinematicCam.target = mapCenter;
+      }
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+  }).then(() => {
+    // skipCinematic should only be defined when there is a cinematic to skip
+    // It is used in some places throughout the codebase to check if a cinematic
+    // is currently playing
+    globalThis.skipCinematic = undefined;
+    document.body?.classList.toggle('viewingCinematicCamera', false);
+    // Clear cinematic camera control:
+    globalThis.cinematicCameraTarget = undefined;
+    cameraAutoFollow(false);
+    console.log('Cinematic Cam: done')
+    // Note: Upgrades must come AFTER resetPlayerForNextLevel, see commit for explanation
+    underworld.showUpgrades();
+  });
+
+}
+
+// Used for moving the camera with middle mouse button (like in Dota2)
+export function moveCamera(x: number, y: number) {
+  utilProps.camera.x += x;
+  utilProps.camera.y += y;
+}
+export function getCameraCenterInGameSpace(): Vec2 {
+  return clone(utilProps.camera);
+}
+
+export function isCameraAutoFollowing(): boolean {
+  return utilProps.doCameraAutoFollow;
+}
+const elCameraRecenterTip = document.getElementById('camera-recenter-tip');
+export function cameraAutoFollow(active: boolean) {
+  utilProps.doCameraAutoFollow = active;
+  document.body?.classList.toggle('auto-camera', active);
+}
+
+// Show a tip when player is nearly offscreen to alert the player how to recenter
+// the camera
+export function tryShowRecenterTip() {
+  if (!utilProps.doCameraAutoFollow && elCameraRecenterTip) {
+    if (globalThis.player?.isSpawned) {
+      const { zoom } = getCamera();
+      // divide by 2: changes it from diameter to radius
+      const screenRadiusInGameSpace = Math.min(elPIXIHolder.clientWidth, elPIXIHolder.clientHeight) / zoom / 2;
+      const margin = config.COLLISION_MESH_RADIUS * 2;
+      const cameraGameSpaceCenterDistanceToPlayer = math.distance(getCameraCenterInGameSpace(), globalThis.player.unit);
+      // Only show recenter tip if player is near or beyond the edge of the screen
+      if (cameraGameSpaceCenterDistanceToPlayer + margin > screenRadiusInGameSpace) {
+        elCameraRecenterTip.innerHTML = i18n(['Press 🍞 to make the view auto follow you', keyToHumanReadable(KeyMapping.recenterCamera)]);
+      } else {
+        elCameraRecenterTip.innerHTML = '';
+      }
+    }
+  }
+}
+
+export function getCamera() {
+  return {
+    x: !app ? 0 : -app.stage.x,
+    y: !app ? 0 : -app.stage.y,
+    // scale.x and scale.y are the same
+    zoom: !app ? 1 : app.stage.scale.x
+  }
+}
+export function getMapCenter(underworld: Underworld): Vec2 {
+  return { x: (underworld.limits.xMax - underworld.limits.xMin) / 2, y: (underworld.limits.yMax - underworld.limits.yMin) / 2 }
+
+}
+export function setCameraToMapCenter(underworld: Underworld) {
+  // Set camera to the center of the map
+  utilProps.camera = getMapCenter(underworld);
+}
+let lastZoom = globalThis.zoomTarget;
+export function updateCameraPosition(underworld: Underworld) {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!(app)) {
+    return
+  }
+
+  // Lerp zoom to target
+  // Note: This must happen BEFORE the stage x and y is updated
+  // or else it will get jumpy when zooming
+  const zoom = !app ? 0 : app.stage.scale.x + ((globalThis.zoomTarget || 1) - app.stage.scale.x) / 8;
+
+  app.stage.scale.x = zoom;
+  app.stage.scale.y = zoom;
+
+  switch (globalThis.view) {
+    case View.Game:
+      if (globalThis.player) {
+        if (utilProps.doCameraAutoFollow) {
+          if (globalThis.cinematicCameraTarget) {
+            // Cinematic camera has control
+            utilProps.camera = clone(globalThis.cinematicCameraTarget);
+          } else {
+
+            if (!inPortal(globalThis.player)) {
+              // Follow current client player
+              utilProps.camera = clone(globalThis.player.unit);
+            }
+          }
+        }
+        // Allow camera movement via WSAD
+        if (keyDown.cameraUp) {
+          utilProps.camera.y -= config.CAMERA_BASE_SPEED * 1 / zoom;
+          tutorialCompleteTask('camera');
+        }
+        if (keyDown.cameraDown) {
+          utilProps.camera.y += config.CAMERA_BASE_SPEED * 1 / zoom;
+          tutorialCompleteTask('camera');
+        }
+        if (keyDown.cameraRight) {
+          utilProps.camera.x += config.CAMERA_BASE_SPEED * 1 / zoom;
+          tutorialCompleteTask('camera');
+        }
+        if (keyDown.cameraLeft) {
+          utilProps.camera.x -= config.CAMERA_BASE_SPEED * 1 / zoom;
+          tutorialCompleteTask('camera');
+        }
+        // Clamp centerTarget so that there isn't a lot of empty space
+        // in the camera if the camera is in auto follow mode
+        if (utilProps.doCameraAutoFollow) {
+          utilProps.camera = clampCameraPosition(utilProps.camera, zoom, underworld);
+        }
+
+        // Actuall move the camera to be centered on the centerTarget
+        const cameraTarget = {
+          x: elPIXIHolder.clientWidth / 2 - (utilProps.camera.x * zoom),
+          y: elPIXIHolder.clientHeight / 2 - (utilProps.camera.y * zoom)
+        }
+        // If zoom has changed, move the camera instantly
+        // this eliminates odd camera movement when zoom occurs
+        if (lastZoom !== zoom) {
+          // Move camera immediately because the user is panning
+          // the camera manually
+          if (!isNaN(cameraTarget.x) && !isNaN(cameraTarget.y)) {
+            // Actuall move the camera to be centered on the centerTarget
+            app.stage.x = cameraTarget.x;
+            app.stage.y = cameraTarget.y;
+          }
+        } else if (utilProps.doCameraAutoFollow) {
+          // Move smoothly to the cameraTarget
+          const camNextCoordinates = math.getCoordsAtDistanceTowardsTarget(
+            app.stage,
+            cameraTarget,
+            math.distance(app.stage, cameraTarget) / 20
+          );
+          if (!isNaN(camNextCoordinates.x) && !isNaN(camNextCoordinates.y)) {
+            // Actuall move the camera to be centered on the centerTarget
+            app.stage.x = camNextCoordinates.x;
+            app.stage.y = camNextCoordinates.y;
+          }
+        } else {
+          // Move camera immediately because the user is panning
+          // the camera manually
+          if (!isNaN(cameraTarget.x) && !isNaN(cameraTarget.y)) {
+            // Actuall move the camera to be centered on the centerTarget
+            app.stage.x = cameraTarget.x;
+            app.stage.y = cameraTarget.y;
+          }
+        }
+        lastZoom = zoom;
+
+        // Keep containerUIFixed fixed in the center of the screen
+        if (containerUIFixed) {
+          containerUIFixed.x = -app.stage.x / zoom;
+          containerUIFixed.y = -app.stage.y / zoom;
+          containerUIFixed.scale.x = 1 / zoom;
+          containerUIFixed.scale.y = 1 / zoom;
+        }
+
+      }
+      break;
+  }
+
+  // Update player name fontsize based on zoom:
+  underworld.players.forEach(p => {
+    if (p.unit.image) {
+      // @ts-ignore jid is a custom identifier to id the text element used for the player name
+      const nameText = p.unit.image.sprite.children.find(c => c.jid === config.NAME_TEXT_ID) as undefined | PIXI.Text
+      updateNameText(nameText, zoom);
+    }
+  });
+
+  tryShowRecenterTip();
+}
+// Clamp the camera position so it doesn't go too far out of bounds when autofollowing a target
+function clampCameraPosition(camPos: Vec2, zoom: number, underworld: Underworld): Vec2 {
+  const clampedPos = { x: 0, y: 0 };
+  // Users can move the camera further if they are manually controlling the camera
+  // whereas if the camera is following a target it keeps more of the map on screen
+  const marginY = config.COLLISION_MESH_RADIUS * 4;
+  const marginX = config.COLLISION_MESH_RADIUS * 4;
+  // Clamp camera X
+  const mapLeftMostPoint = 0 - marginX;
+  const mapRightMostPoint = underworld.limits.xMax + marginX;
+  const camCenterXMin = mapLeftMostPoint + elPIXIHolder.clientWidth / 2 / zoom;
+  const camCenterXMax = mapRightMostPoint - elPIXIHolder.clientWidth / 2 / zoom;
+  // If the supposed minimum is more than the maximum, just center the camera:
+  if (camCenterXMin > camCenterXMax) {
+    clampedPos.x = (mapRightMostPoint + mapLeftMostPoint) / 2;
+  } else {
+    // clamp the camera x between the min and max possible camera targets
+    clampedPos.x = Math.min(camCenterXMax, Math.max(camCenterXMin, camPos.x));
+  }
+
+  //Clamp camera Y
+  const mapTopMostPoint = 0 - marginY;
+  const mapBottomMostPoint = underworld.limits.yMax + marginY;
+  const camCenterYMin = mapTopMostPoint + elPIXIHolder.clientHeight / 2 / zoom;
+  const camCenterYMax = mapBottomMostPoint - elPIXIHolder.clientHeight / 2 / zoom;
+  // If the supposed minimum is more than the maximum, just center the camera:
+  if (camCenterYMin > camCenterYMax) {
+    clampedPos.y = (mapBottomMostPoint + mapTopMostPoint) / 2;
+  } else {
+    // clamp the camera x between the min and max possible camera targets
+    clampedPos.y = Math.min(camCenterYMax, Math.max(camCenterYMin, camPos.y));
+  }
+  return clampedPos;
+
+
+}
+export function updateNameText(nameText?: PIXI.Text, zoom?: number) {
+  if (nameText) {
+    // Keep the text the same size regardless of zoom
+    if (zoom) {
+      nameText.scale.set(1 / zoom);
+      // Adjust the text position so it stays relatively the same distance above the player head
+      nameText.y = -config.COLLISION_MESH_RADIUS - config.NAME_TEXT_Y_OFFSET / zoom;
+    }
+    if (nameText.parent.scale.x < 0) {
+      nameText.scale.x = -Math.abs(nameText.scale.x);
+    } else {
+      nameText.scale.x = Math.abs(nameText.scale.x);
+    }
+  }
+
+}
+// PIXI textures
+let sheets: PIXI.Spritesheet[] = [];
+export function setupPixi(): Promise<void> {
+  // Headless does not use graphics
+  if (globalThis.headless) { return Promise.resolve(); }
+  if (!app) {
+    console.error('app is not defined')
+    return Promise.resolve();
+  }
+  // The application will create a canvas element for you that you
+  // can then insert into the DOM
+  if (elPIXIHolder) {
+    elPIXIHolder.appendChild(app.view);
+  }
+
+  return loadTextures().then(() => {
+    // Resolve the setupPixiPromise so that the menu knows
+    // that pixijs is ready
+    globalThis.pixiPromiseResolver?.();
+  }).catch(e => {
+    console.error('pixi load failed', e)
+  });
+}
+export function addPixiContainersForView(view: View) {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (app && utilProps.underworldPixiContainers) {
+    app.stage.removeChildren();
+    removeContainers(utilProps.underworldPixiContainers);
+    switch (view) {
+      case View.Game:
+        addContainers(utilProps.underworldPixiContainers);
+        break;
+    }
+  }
+}
+function addContainers(containers: PIXI.Container[]) {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!app) {
+    return;
+  }
+  // Add containers to the stage in the order that they will be rendered on top of each other
+  for (let container of containers) {
+    app.stage.addChild(container);
+  }
+}
+function removeContainers(containers: PIXI.Container[]) {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!app) {
+    return;
+  }
+  // Add containers to the stage in the order that they will be rendered on top of each other
+  for (let container of containers) {
+    app.stage.removeChild(container);
+  }
+}
+function loadTextures(): Promise<void> {
+  // Headless does not use graphics
+  if (globalThis.headless) { return Promise.resolve(); }
+  return new Promise((resolve, reject) => {
+    if (!globalThis.headless && globalThis.pixi) {
+      const loader = globalThis.pixi.Loader.shared;
+      loader.add('Forum', './font/Forum/Forum-Regular.ttf');
+      // loader.onProgress.add(a => console.log("onProgress", a)); // called once per loaded/errored file
+      // loader.onError.add(e => console.error("Pixi loader on error:", e)); // called once per errored file
+      // loader.onLoad.add(a => console.log("Pixi loader onLoad", a)); // called once per loaded file
+      // loader.onComplete.add(a => console.log("Pixi loader onComplete")); // called once when the queued resources all load.
+      loader.add('sheet1.json');
+      loader.onError.add(e => {
+        console.error('Pixi loader error', e)
+      })
+      loader.onComplete.add((loader, resources) => {
+        const sheetPaths = Object.keys(resources).filter(path => path.endsWith('.json'));
+        for (let sheetPath of sheetPaths) {
+          const resource = resources[sheetPath]
+          if (resource && resource.spritesheet && sheets.indexOf(resource.spritesheet) === -1) {
+            console.log('Load: register spritesheet', resource.url);
+            sheets.push(resource.spritesheet as PIXI.Spritesheet);
+            isReady = true;
+          }
+        }
+        if (sheets.length) {
+          resolve();
+        } else {
+          reject();
+        }
+      });
+      // Start loading textures
+      loader.load();
+    } else {
+      console.error('globalThis.pixi is undefined')
+    }
+  });
+}
+
+export interface PixiSpriteOptions {
+  onFrameChange?: (currentFrame: number) => void,
+  onComplete?: () => void,
+  loop: boolean,
+  animationSpeed?: number,
+  // Allow for passing down color replace filter params.  This is currently used to
+  // customize the color of player magic layer
+  colorReplace?: { colors: [number, number][], epsilon: number }
+}
+// Allows files without access to locally scoped 'sheet' to get an 
+// animated texture from the sheet
+export function getPixiTextureAnimated(
+  imagePath: string
+) {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!isReady) {
+    throw new Error(
+      'PIXI is not finished setting up.  Cannot add a sprite yet',
+    );
+  }
+  for (let sheet of sheets) {
+    const animation = sheet.animations[imagePath];
+    if (animation) {
+      return animation;
+    }
+  }
+  return undefined;
+}
+export function addPixiSpriteAnimated(
+  imagePath: string,
+  parent: PIXI.Container | undefined,
+  options: PixiSpriteOptions = {
+    loop: true
+  }
+): JSpriteAnimated | undefined {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!isReady) {
+    throw new Error(
+      'PIXI is not finished setting up.  Cannot add a sprite yet',
+    );
+  }
+  if (!(globalThis.pixi && parent)) {
+    // For headless
+    return
+  }
+  let sprite: JSpriteAnimated;
+  let texture: PIXI.Texture<PIXI.Resource>[] | undefined;
+  for (let sheet of sheets) {
+    texture = sheet.animations[imagePath];
+    if (texture) {
+      break;
+    }
+  }
+  if (texture) {
+    const animatedSprite = new globalThis.pixi.AnimatedSprite(texture);
+    animatedSprite.animationSpeed = options.animationSpeed || config.DEFAULT_ANIMATION_SPEED;
+    if (options.onComplete) {
+      animatedSprite.onComplete = options.onComplete;
+    }
+    if (options.onFrameChange) {
+      animatedSprite.onFrameChange = options.onFrameChange;
+    }
+    animatedSprite.loop = options.loop;
+    if (options.colorReplace) {
+      const robeMagicColorFilter = new MultiColorReplaceFilter(options.colorReplace.colors, options.colorReplace.epsilon);
+      if (!animatedSprite.filters) {
+        animatedSprite.filters = [];
+      }
+      animatedSprite.filters.push(robeMagicColorFilter);
+
+    }
+    animatedSprite.play();
+    // Adding imagePath to a PIXI.AnimatedSprite makes it a JSpriteAnimated object
+    sprite = animatedSprite as JSpriteAnimated;
+    sprite.imagePath = imagePath;
+    sprite.anchor.set(0.5);
+
+    parent.addChild(sprite);
+    return sprite;
+  } else {
+    // TODO prevent this from causing Loading to freeze with white screen
+    throw new Error(
+      'Could not find animated texture for ' + imagePath
+    );
+  }
+}
+
+export function addPixiTilingSprite(
+  imagePath: string,
+  parent: PIXI.Container | undefined,
+): PIXI.TilingSprite | undefined {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!isReady) {
+    throw new Error(
+      'PIXI is not finished setting up.  Cannot add a sprite yet',
+    );
+  }
+  if (!(globalThis.pixi && parent)) {
+    // For headless server
+    return undefined;
+  }
+  let singleTexture: PIXI.Texture<PIXI.Resource> | undefined;
+  for (let sheet of sheets) {
+    singleTexture = sheet.textures[imagePath];
+    if (singleTexture) {
+      break;
+    }
+  }
+  if (!singleTexture) {
+    console.error('Could not find texture for', imagePath, 'check the spritesheet to figure out why it is missing.');
+    return undefined;
+  }
+  singleTexture.baseTexture.wrapMode = globalThis.pixi.WRAP_MODES.REPEAT;
+  const sprite = new globalThis.pixi.TilingSprite(singleTexture);
+
+  // @ts-ignore: imagePath is a property that i've added and is not a part of the PIXI type
+  // which is used for identifying the sprite or animation that is currently active
+  sprite.imagePath = imagePath;
+  parent.addChild(sprite);
+  return sprite;
+}
+export function addPixiSprite(
+  imagePath: string,
+  parent: PIXI.Container | undefined,
+): PIXI.Sprite | undefined {
+  // Headless does not use graphics
+  if (globalThis.headless) { return; }
+  if (!isReady) {
+    throw new Error(
+      'PIXI is not finished setting up.  Cannot add a sprite yet',
+    );
+  }
+  if (!(globalThis.pixi && parent)) {
+    // For headless server
+    return undefined;
+  }
+  let singleTexture: PIXI.Texture<PIXI.Resource> | undefined;
+  for (let sheet of sheets) {
+    singleTexture = sheet.textures[imagePath];
+    if (singleTexture) {
+      break;
+    }
+  }
+  if (!singleTexture) {
+    console.error('Could not find texture for', imagePath, 'check the spritesheet to figure out why it is missing.');
+    return undefined;
+  }
+  const sprite = new globalThis.pixi.Sprite(singleTexture);
+
+  // @ts-ignore: imagePath is a property that i've added and is not a part of the PIXI type
+  // which is used for identifying the sprite or animation that is currently active
+  sprite.imagePath = imagePath;
+  parent.addChild(sprite);
+  return sprite;
+}
+
+export function pixiText(text: string, style: Partial<PIXI.ITextStyle>): PIXI.Text | undefined {
+  if (!globalThis.pixi) {
+    return undefined;
+  }
+  const textSprite = new globalThis.pixi.Text(text, { fontFamily: 'Forum', ...style });
+  // Pixi Text has to be manually destroyed so it needs an identifier
+  // so I know that the sprite needs to be manually cleaned up.
+  // @ts-ignore jid is a custom identifier to id the text element used
+  textSprite.jid = config.NAME_TEXT_ID;
+  return textSprite;
+}
+
+// Non particle engine particles
+// particle engine references pixi specific particles and their generators,
+// these are just sprites that we manage ourselves
+export type BloodParticle = {
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+  tick: number,
+  scale: number,
+  color: number,
+}
+export function startBloodParticleSplatter(underworld: Underworld, damageOrigin: Vec2, target: IUnit, options?: { maxRotationOffset: number, numberOfParticles: number }) {
+  if (globalThis.headless) {
+    return;
+  }
+  const bloodAmount = options ? options.numberOfParticles : randInt(30, 60);
+  const angle = getAngleBetweenVec2sYInverted(damageOrigin, target);
+  for (let i = 0; i < bloodAmount; i++) {
+    const isDamageFromSelf = equal(damageOrigin, target);
+    const MAX_ROTATION_OFFSET = options ? options.maxRotationOffset : Math.PI / 4;
+    // If the damage origin is the same as target, the spread is a full circle, if not, it's a narrow fan so it can spray in one direction
+    const randRotationOffset = isDamageFromSelf ? randFloat(-Math.PI, Math.PI) : randFloat(-MAX_ROTATION_OFFSET, MAX_ROTATION_OFFSET);
+    const randScale = randInt(5, 10);
+    // Ensure blood is at unit feet, not center
+    const unitImageYOffset = config.COLLISION_MESH_RADIUS / 2;
+    // Make spray go farther the closer it is to the centerline
+    const proportionOfMaxAwayFromCenterLine = Math.abs(randRotationOffset / MAX_ROTATION_OFFSET);
+    const DISTANCE_MAGNIFIER = isDamageFromSelf ? 0.5 : 2;
+    // For speeds
+    // 0.5 is short 
+    // 2 is far
+    // Invert the proportion so that closer to the centerline goes farther out
+    // Max ensures they particles don't go too far
+    const speed = Math.min(2, DISTANCE_MAGNIFIER * Math.abs((1 - proportionOfMaxAwayFromCenterLine)));
+
+    const bloodSplat = {
+      x: target.x,
+      y: target.y + unitImageYOffset,
+      dx: -speed * Math.cos(angle + randRotationOffset) * 15,
+      dy: -speed * Math.sin(angle + randRotationOffset) * 15,
+      tick: 0, // the amount of times that it has moved
+      scale: randScale,
+      color: target.bloodColor,
+    };
+
+
+    underworld.bloods.push(bloodSplat);
+  }
+
+
+}
+export function tickParticle(particle: BloodParticle) {
+  if (globalThis.headless) {
+    //remove it from array
+    return true;
+  }
+  particle.y += particle.dy;
+  particle.x -= particle.dx;
+  particle.dx *= 0.9;
+  particle.dy *= 0.9;
+  particle.tick++;
+  //remove from array once it is done moving (OPTIMIZATION)
+  if (particle.tick > 10) {
+    //remove it from array
+    return true;
+  }
+  return false;
+}
+
+// Used for disabling the HUD for recording
+export function toggleHUD() {
+  globalThis.isHUDHidden = !globalThis.isHUDHidden;
+  const visible = !globalThis.isHUDHidden;
+  if (document) {
+    document.body?.classList.toggle('HUD-hidden', !visible);
+  }
+  console.log(`Togggle hud to ${visible ? 'visible' : 'hidden'}`)
+  // Toggling HUD off should also set the music to 0 since music will
+  // be added in post production for recording
+  if (!visible && globalThis.changeVolumeMusic) {
+    globalThis.changeVolumeMusic(0, false);
+  }
+  if (containerPlanningView) {
+    containerPlanningView.visible = visible
+  }
+  if (containerPlayerThinking) {
+    containerPlayerThinking.visible = visible;
+  }
+  if (containerUIFixed) {
+    containerUIFixed.visible = visible;
+  }
+  if (containerFloatingText) {
+    containerFloatingText.visible = visible;
+  }
+  if (containerRadiusUI) {
+    containerRadiusUI.visible = visible;
+  }
+
+}
