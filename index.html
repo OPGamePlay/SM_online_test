@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="A game of Golems and Wizards" />
+
+  <title>Spellmasons</title>
+  <!-- Re-enable once you set up cookie consent https://support.google.com/analytics/answer/9976101?hl=en-->
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-P13H01JPT4"></script> -->
+  <!-- <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-P13H01JPT4');
+  </script> -->
+</head>
+
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <pre id="ready-state"></pre>
+  <div id="vote-level-label"></div>
+  <div id="lobby">
+    <div class="ui-border">
+      <div id="lobby-modal" class="list">
+        Lobby
+      </div>
+    </div>
+  </div>
+  <div id="game-over">
+    <div class="ui-border">
+      <div id="game-over-modal" class="list scrollable">
+        <h1>
+          💀 <span data-localize-text="Game Over"></span> 💀
+        </h1>
+        <div id="game-over-stats"></div>
+        <button id="quit" class="button-wrapper">
+          <div data-localize-text="Quit to Main Menu"></div>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="perkList" class="ui-border">
+    <h1>Perks</h1>
+    <div data-localize-text="Triggers every level"></div>
+    <div id="perkEveryLevel"></div>
+    <br />
+    <div data-localize-text="Triggers every turn">
+    </div>
+    <div id="perkEveryTurn"> </div>
+  </div>
+  <div id="loading-screen" data-localize-text="loading">
+    Loading...
+  </div>
+  <div id="instructions"> </div>
+  <div id="camera-recenter-tip"> </div>
+  <div id="upgrade-picker">
+    <div id="upgrade-picker-label">Choose a Card</div>
+    <div id="upgrade-picker-content"></div>
+  </div>
+  <div id="underworld-container">
+    <div id="caution-box-positioner">
+      <div id="caution-box">
+        <div id="caution-box-text">
+          Targeting Self
+        </div>
+      </div>
+    </div>
+
+    <div id="pie-disconnected">
+      <div data-localize-text="Lost Connection to Server">
+      </div>
+      <div id="websocketpie-connection-status"></div>
+      <div class="button-wrapper" id="disconnect-btn" style="max-width: 300px;">
+        <div class="button-inner" data-localize-text="Quit to Main Menu"></div>
+      </div>
+    </div>
+    <div id="PIXI-holder"></div>
+    <div id="inspector-tooltip">
+      <div id="inspector-tooltip-container">
+        <div class="ui-border">
+          <div id="inspector-tooltip-inner" class="scrollable">
+            <img id="inspector-tooltip-img" onerror="this.style.display='none';" />
+            <p id="inspector-tooltip-content"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="floating-card-holder-left" class="floating-card-holder card-holder"> </div>
+    <div id="floating-card-holder-right" class="floating-card-holder card-holder"> </div>
+    <div id="ui-positioner">
+      <div id="ui-holder" class="gap-15">
+        <div id="card-holders-border">
+          <div id="card-holders" class="gap-15">
+            <div id="inventory-icon"></div>
+            <div id="card-holders-inner">
+              <div id="card-hand" class="card-holder"></div>
+              <div id="health-mana-holder">
+                <div id="health-mana">
+                  <div id="health" class="health-mana-bar">
+                    <div class="fill"> </div>
+                    <div class="fill"> </div>
+                    <div class="cost"></div>
+                    <div class="cost"></div>
+                    <div class="label"></div>
+                  </div>
+                  <div id="stamina" class="health-mana-bar">
+                    <div class="fill"></div>
+                    <div class="label"></div>
+                  </div>
+                  <div id="mana" class="health-mana-bar">
+                    <div class="fill"></div>
+                    <div class="fill"></div>
+                    <div class="fill"></div>
+                    <div class="cost"></div>
+                    <div class="cost"></div>
+                    <div class="cost"></div>
+                    <div class="label"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="end-turn-btn">
+              <div id="end-turn-btn-inner">
+                <span data-localize-text="End Turn"></span>
+                <div class="hotkey-badge-holder">
+                  <kbd class="hotkey-badge">Spacebar</kbd>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="selected-cards-container" class="ui-border">
+          <div id="selected-cards" class="scrollable"> </div>
+        </div>
+        <div id="inventory-container">
+          <div class="book-padding"></div>
+          <div id="inventory-content" class="pad-15"></div>
+          <div class="card-inspect"></div>
+          <div class="book-padding"></div>
+          <div id="level-tracker"></div>
+        </div>
+        <div class="card-inspect"></div>
+      </div>
+    </div>
+  </div>
+  <div id="tutorial-checklist">
+    <div class="ui-border">
+      <div id="tutorial-checklist-inner"></div>
+    </div>
+  </div>
+
+  <div id="version">
+    <div id="seed"></div>
+    <div id="version-info"></div>
+    <div id="version-info-headless-server"></div>
+  </div>
+  <div id="debug-info"></div>
+  <div id="in-game-lobby"></div>
+  <div id="menu-app">
+  </div>
+  <script type="module" src="/src/presetup.ts"></script>
+  <script type="module" src="/svelte-bundle.js"></script>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+- Cie on Discord (JP CN): Reach out after 1/07
+- "dead one" on Discord (Dutch)
+- GliCeroN on Discord (Polish)
+- Foobarbar32 discord: German
+- 0xFF: Italian
+- coblin: discord; bahasa indonesian (TODO)
+- Tekyera: discord (TODO)
+- Skornett: French (discord) (TODO)
+- Turkish
+    - (Hasan Hüseyin Şahin) or maybe my nickname with my contact link (HasanH - https://hasanh.carrd.co). 
+    - rastabarkan (Turkish)

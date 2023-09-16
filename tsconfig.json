@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "moduleResolution": "Node",
+    "strict": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "noEmit": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "strictNullChecks": true,
+  },
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/types/globalTypesHeadless.d.ts",
+    "**/*.test.ts"
+  ]
+}

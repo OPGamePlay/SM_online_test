@@ -1,0 +1,34 @@
+const difficulties = [];
+for(let i = 0; i < 12; i++){
+  const adjustedLevelIndex = i;
+  const baseDifficultyMultiplier = 3;
+  const startAcceleratingDifficultyAtLevelIndex = 6;
+  const difficultyMultiplier = adjustedLevelIndex >= startAcceleratingDifficultyAtLevelIndex
+    ? baseDifficultyMultiplier + adjustedLevelIndex + 1-startAcceleratingDifficultyAtLevelIndex
+    : baseDifficultyMultiplier;
+  let budgetLeft = (adjustedLevelIndex + 1) * difficultyMultiplier + 2;
+  difficulties.push([i, difficultyMultiplier, budgetLeft]);
+}
+console.log('difficulties');
+console.table(difficulties);
+// export function create(args:
+//   {
+//     pos: Vec2, pickupSource: IPickupSource
+//   }, underworld: Underworld, prediction: boolean) {
+//   if (prediction) {
+//     _create(args, underworld, prediction);
+//   } else {
+//     // if(host){}
+//     const { pos, pickupSource } = args;
+//     // Create through network message to prevent desyncs
+//     underworld.pie.sendData({
+//       type: MESSAGE_TYPES.CREATE_PICKUP,
+//       id: ++underworld.lastPickupId,
+//       pos,
+//       playerClientId: player?.clientId
+//     });
+//   }
+// }
+  // Hard-coded tutorial budget so the first time playing isn't too hard
+  // if (!isTutorialComplete() && connectedClients.length == 1) {
+  // }
